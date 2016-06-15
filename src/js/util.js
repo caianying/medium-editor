@@ -574,6 +574,7 @@
                     return doc.execCommand('outdent', false, tagName);
                 }
             }
+
             return doc.execCommand('formatBlock', false, tagName);
         },
 

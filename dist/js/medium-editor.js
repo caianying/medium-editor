@@ -917,6 +917,20 @@ MediumEditor.extensions = {};
             var blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc)),
                 childNodes;
 
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ul" ) {
+              doc.execCommand('insertunorderedlist', false, null);
+              doc.execCommand('formatBlock', false, "p");
+
+              blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc))
+            }
+
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ol" ) {
+              doc.execCommand('insertorderedlist', false, null);
+              doc.execCommand('formatBlock', false, "p");
+
+              blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc))
+            }
+
             // Special handling for blockquote
             if (tagName === 'blockquote') {
                 if (blockContainer) {
@@ -939,18 +953,11 @@ MediumEditor.extensions = {};
                 }
             }
 
+            console.log("Break Point");
             // If the blockContainer is already the element type being passed in
             // treat it as 'undo' formatting and just convert it to a <p>
             if (blockContainer && tagName === blockContainer.nodeName.toLowerCase()) {
                 tagName = 'p';
-            }
-
-            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ul" ) {
-                doc.execCommand('insertunorderedlist', false, tagName);
-            }
-
-            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ol" ) {
-                doc.execCommand('insertorderedlist', false, tagName);
             }
 
             // When IE we need to add <> to heading elements
