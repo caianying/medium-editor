@@ -953,11 +953,24 @@ MediumEditor.extensions = {};
                 }
             }
 
-            console.log("Break Point");
             // If the blockContainer is already the element type being passed in
             // treat it as 'undo' formatting and just convert it to a <p>
             if (blockContainer && tagName === blockContainer.nodeName.toLowerCase()) {
-                tagName = 'p';
+              // Recover List
+              if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ul')
+              {
+                 if(tagName=='h3'||tagName=='h2'){
+                   document.execCommand('formatBlock',false,'p')
+                 }
+                 return document.execCommand('insertunorderedlist',false,null)
+               }
+               if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ol'){
+                 if(tagName=='h3'||tagName=='h2'){
+                   document.execCommand('formatBlock',false,'p')
+                 }
+                 return document.execCommand('insertorderedlist',false,null)
+               }
+              tagName = 'p';
             }
 
             // When IE we need to add <> to heading elements
