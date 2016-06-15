@@ -34,7 +34,23 @@
     <script src="../dist/js/medium-editor.js"></script>
     <script>
         var editor = new MediumEditor('.editable', {
-            buttonLabels: 'fontawesome'
+            placeholder:{
+              text:'输入文字选中后修改样式',
+              hideOnClick:true
+            },
+            buttonLabels: 'fontawesome',
+            toolbar: {
+            /* These are the default options for the toolbar,
+            if nothing is passed this is what is used */
+              allowMultiParagraphSelection: false,
+              buttons: [
+                'h2',
+                'h3',
+                'orderedlist',
+                'unorderedlist',
+                'quote'
+              ]
+            }
         }),
         cssLink = document.getElementById('medium-editor-theme');
 

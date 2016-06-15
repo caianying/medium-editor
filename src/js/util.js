@@ -540,6 +540,14 @@
                 tagName = 'p';
             }
 
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ul" ) {
+                doc.execCommand('insertorderedlist', false, tagName);
+            }
+
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ol" ) {
+                doc.execCommand('insertunorderedlist', false, tagName);
+            }
+
             // When IE we need to add <> to heading elements
             // http://stackoverflow.com/questions/10741831/execcommand-formatblock-headings-in-ie
             if (Util.isIE) {
@@ -566,7 +574,6 @@
                     return doc.execCommand('outdent', false, tagName);
                 }
             }
-
             return doc.execCommand('formatBlock', false, tagName);
         },
 

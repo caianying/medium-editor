@@ -945,6 +945,14 @@ MediumEditor.extensions = {};
                 tagName = 'p';
             }
 
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ul" ) {
+                doc.execCommand('insertunorderedlist', false, tagName);
+            }
+
+            if (blockContainer && blockContainer.nodeName.toLowerCase() === "ol" ) {
+                doc.execCommand('insertorderedlist', false, tagName);
+            }
+
             // When IE we need to add <> to heading elements
             // http://stackoverflow.com/questions/10741831/execcommand-formatblock-headings-in-ie
             if (Util.isIE) {
@@ -971,8 +979,8 @@ MediumEditor.extensions = {};
                     return doc.execCommand('outdent', false, tagName);
                 }
             }
-
-            return doc.execCommand('formatBlock', false, tagName);
+            var resultTemp = doc.execCommand('formatBlock', false, tagName);
+            return resultTemp;
         },
 
         /**
@@ -6901,6 +6909,7 @@ MediumEditor.extensions = {};
 
     function execActionInternal(action, opts) {
         /*jslint regexp: true*/
+        // console.log(this.options.ownerDocument);
         var appendAction = /^append-(.+)$/gi,
             justifyAction = /justify([A-Za-z]*)$/g, /* Detecting if is justifyCenter|Right|Left */
             match,
@@ -6951,6 +6960,16 @@ MediumEditor.extensions = {};
             }
 
             return result;
+        }
+
+        // Get the top level block element that contains the selection
+        var blockContainer = MediumEditor.util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(this.options.ownerDocument)),
+            childNodes;
+
+        var currentNodeName = blockContainer.nodeName.toLowerCase();
+        // console.log(currentNodeName);
+        if (blockContainer && (currentNodeName != "ul" || currentNodeName != "ol") ) {
+          MediumEditor.util.execFormatBlock(this.options.ownerDocument, currentNodeName);
         }
 
         cmdValueArgument = opts && opts.value;

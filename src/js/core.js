@@ -539,6 +539,7 @@
 
     function execActionInternal(action, opts) {
         /*jslint regexp: true*/
+        console.log(this.options.ownerDocument);
         var appendAction = /^append-(.+)$/gi,
             justifyAction = /justify([A-Za-z]*)$/g, /* Detecting if is justifyCenter|Right|Left */
             match,
@@ -589,6 +590,16 @@
             }
 
             return result;
+        }
+
+        // Get the top level block element that contains the selection
+        var blockContainer = MediumEditor.util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(this.options.ownerDocument)),
+            childNodes;
+
+        var currentNodeName = blockContainer.nodeName.toLowerCase();
+        // console.log(currentNodeName);
+        if (blockContainer && (currentNodeName != "ul" || currentNodeName != "ol") ) {
+          MediumEditor.util.execFormatBlock(this.options.ownerDocument, currentNodeName);
         }
 
         cmdValueArgument = opts && opts.value;
@@ -904,6 +915,7 @@
                 // Restore the previous selection
                 this.restoreSelection();
             } else {
+                MediumEditor.util.cleanListDOM(this.options.ownerDocument, this.getSelectedParentElement());
                 result = execActionInternal.call(this, action, opts);
             }
 
