@@ -959,13 +959,13 @@ MediumEditor.extensions = {};
               // Recover List
               if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ul')
               {
-                 if(tagName=='h3'||tagName=='h2'){
+                 if(tagName=='h3'||tagName=='h2'||tagName="blockquote"){
                    document.execCommand('formatBlock',false,'p')
                  }
                  return document.execCommand('insertunorderedlist',false,null)
                }
                if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ol'){
-                 if(tagName=='h3'||tagName=='h2'){
+                 if(tagName=='h3'||tagName=='h2'||tagName="blockquote"){
                    document.execCommand('formatBlock',false,'p')
                  }
                  return document.execCommand('insertorderedlist',false,null)
