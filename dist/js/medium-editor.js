@@ -171,217 +171,7 @@ if (!("classList" in document.createElement("_"))) {
   }(self));
 }
 
-/* Blob.js
- * A Blob implementation.
- * 2014-07-24
- *
- * By Eli Grey, http://eligrey.com
- * By Devin Samarin, https://github.com/dsamarin
- * License: X11/MIT
- *   See https://github.com/eligrey/Blob.js/blob/master/LICENSE.md
- */
 
-/*global self, unescape */
-/*jslint bitwise: true, regexp: true, confusion: true, es5: true, vars: true, white: true,
-  plusplus: true */
-
-/*! @source http://purl.eligrey.com/github/Blob.js/blob/master/Blob.js */
-
-(function (view) {
-  "use strict";
-
-  view.URL = view.URL || view.webkitURL;
-
-  if (view.Blob && view.URL) {
-    try {
-      new Blob;
-      return;
-    } catch (e) {}
-  }
-
-  // Internally we use a BlobBuilder implementation to base Blob off of
-  // in order to support older browsers that only have BlobBuilder
-  var BlobBuilder = view.BlobBuilder || view.WebKitBlobBuilder || view.MozBlobBuilder || (function(view) {
-    var
-        get_class = function(object) {
-        return Object.prototype.toString.call(object).match(/^\[object\s(.*)\]$/)[1];
-      }
-      , FakeBlobBuilder = function BlobBuilder() {
-        this.data = [];
-      }
-      , FakeBlob = function Blob(data, type, encoding) {
-        this.data = data;
-        this.size = data.length;
-        this.type = type;
-        this.encoding = encoding;
-      }
-      , FBB_proto = FakeBlobBuilder.prototype
-      , FB_proto = FakeBlob.prototype
-      , FileReaderSync = view.FileReaderSync
-      , FileException = function(type) {
-        this.code = this[this.name = type];
-      }
-      , file_ex_codes = (
-          "NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR "
-        + "NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR"
-      ).split(" ")
-      , file_ex_code = file_ex_codes.length
-      , real_URL = view.URL || view.webkitURL || view
-      , real_create_object_URL = real_URL.createObjectURL
-      , real_revoke_object_URL = real_URL.revokeObjectURL
-      , URL = real_URL
-      , btoa = view.btoa
-      , atob = view.atob
-
-      , ArrayBuffer = view.ArrayBuffer
-      , Uint8Array = view.Uint8Array
-
-      , origin = /^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/
-    ;
-    FakeBlob.fake = FB_proto.fake = true;
-    while (file_ex_code--) {
-      FileException.prototype[file_ex_codes[file_ex_code]] = file_ex_code + 1;
-    }
-    // Polyfill URL
-    if (!real_URL.createObjectURL) {
-      URL = view.URL = function(uri) {
-        var
-            uri_info = document.createElementNS("http://www.w3.org/1999/xhtml", "a")
-          , uri_origin
-        ;
-        uri_info.href = uri;
-        if (!("origin" in uri_info)) {
-          if (uri_info.protocol.toLowerCase() === "data:") {
-            uri_info.origin = null;
-          } else {
-            uri_origin = uri.match(origin);
-            uri_info.origin = uri_origin && uri_origin[1];
-          }
-        }
-        return uri_info;
-      };
-    }
-    URL.createObjectURL = function(blob) {
-      var
-          type = blob.type
-        , data_URI_header
-      ;
-      if (type === null) {
-        type = "application/octet-stream";
-      }
-      if (blob instanceof FakeBlob) {
-        data_URI_header = "data:" + type;
-        if (blob.encoding === "base64") {
-          return data_URI_header + ";base64," + blob.data;
-        } else if (blob.encoding === "URI") {
-          return data_URI_header + "," + decodeURIComponent(blob.data);
-        } if (btoa) {
-          return data_URI_header + ";base64," + btoa(blob.data);
-        } else {
-          return data_URI_header + "," + encodeURIComponent(blob.data);
-        }
-      } else if (real_create_object_URL) {
-        return real_create_object_URL.call(real_URL, blob);
-      }
-    };
-    URL.revokeObjectURL = function(object_URL) {
-      if (object_URL.substring(0, 5) !== "data:" && real_revoke_object_URL) {
-        real_revoke_object_URL.call(real_URL, object_URL);
-      }
-    };
-    FBB_proto.append = function(data/*, endings*/) {
-      var bb = this.data;
-      // decode data to a binary string
-      if (Uint8Array && (data instanceof ArrayBuffer || data instanceof Uint8Array)) {
-        var
-            str = ""
-          , buf = new Uint8Array(data)
-          , i = 0
-          , buf_len = buf.length
-        ;
-        for (; i < buf_len; i++) {
-          str += String.fromCharCode(buf[i]);
-        }
-        bb.push(str);
-      } else if (get_class(data) === "Blob" || get_class(data) === "File") {
-        if (FileReaderSync) {
-          var fr = new FileReaderSync;
-          bb.push(fr.readAsBinaryString(data));
-        } else {
-          // async FileReader won't work as BlobBuilder is sync
-          throw new FileException("NOT_READABLE_ERR");
-        }
-      } else if (data instanceof FakeBlob) {
-        if (data.encoding === "base64" && atob) {
-          bb.push(atob(data.data));
-        } else if (data.encoding === "URI") {
-          bb.push(decodeURIComponent(data.data));
-        } else if (data.encoding === "raw") {
-          bb.push(data.data);
-        }
-      } else {
-        if (typeof data !== "string") {
-          data += ""; // convert unsupported types to strings
-        }
-        // decode UTF-16 to binary string
-        bb.push(unescape(encodeURIComponent(data)));
-      }
-    };
-    FBB_proto.getBlob = function(type) {
-      if (!arguments.length) {
-        type = null;
-      }
-      return new FakeBlob(this.data.join(""), type, "raw");
-    };
-    FBB_proto.toString = function() {
-      return "[object BlobBuilder]";
-    };
-    FB_proto.slice = function(start, end, type) {
-      var args = arguments.length;
-      if (args < 3) {
-        type = null;
-      }
-      return new FakeBlob(
-          this.data.slice(start, args > 1 ? end : this.data.length)
-        , type
-        , this.encoding
-      );
-    };
-    FB_proto.toString = function() {
-      return "[object Blob]";
-    };
-    FB_proto.close = function() {
-      this.size = 0;
-      delete this.data;
-    };
-    return FakeBlobBuilder;
-  }(view));
-
-  view.Blob = function(blobParts, options) {
-    var type = options ? (options.type || "") : "";
-    var builder = new BlobBuilder();
-    if (blobParts) {
-      for (var i = 0, len = blobParts.length; i < len; i++) {
-        if (Uint8Array && blobParts[i] instanceof Uint8Array) {
-          builder.append(blobParts[i].buffer);
-        }
-        else {
-          builder.append(blobParts[i]);
-        }
-      }
-    }
-    var blob = builder.getBlob(type);
-    if (!blob.slice && blob.webkitSlice) {
-      blob.slice = blob.webkitSlice;
-    }
-    return blob;
-  };
-
-  var getPrototypeOf = Object.getPrototypeOf || function(object) {
-    return object.__proto__;
-  };
-  view.Blob.prototype = getPrototypeOf(new view.Blob());
-}(typeof self !== "undefined" && self || typeof window !== "undefined" && window || this.content || this));
 
 (function (root, factory) {
     'use strict';
@@ -405,6 +195,7 @@ function MediumEditor(elements, options) {
 
 MediumEditor.extensions = {};
 /*jshint unused: true */
+// util
 (function (window) {
     'use strict';
 
@@ -916,11 +707,10 @@ MediumEditor.extensions = {};
             // Get the top level block element that contains the selection
             var blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc)),
                 childNodes;
-
+            // Special handling for blockquote
             if (blockContainer && blockContainer.nodeName.toLowerCase() === "ul" ) {
               doc.execCommand('insertunorderedlist', false, null);
               doc.execCommand('formatBlock', false, "p");
-
               blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc))
             }
 
@@ -931,7 +721,7 @@ MediumEditor.extensions = {};
               blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc))
             }
 
-            // Special handling for blockquote
+
             if (tagName === 'blockquote') {
                 if (blockContainer) {
                     childNodes = Array.prototype.slice.call(blockContainer.childNodes);
@@ -942,6 +732,7 @@ MediumEditor.extensions = {};
                         // FF handles blockquote differently on formatBlock
                         // allowing nesting, we need to use outdent
                         // https://developer.mozilla.org/en-US/docs/Rich-Text_Editing_in_Mozilla
+                        console.log(blockContainer)
                         return doc.execCommand('outdent', false, null);
                     }
                 }
@@ -957,19 +748,6 @@ MediumEditor.extensions = {};
             // treat it as 'undo' formatting and just convert it to a <p>
             if (blockContainer && tagName === blockContainer.nodeName.toLowerCase()) {
               // Recover List
-              if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ul')
-              {
-                 if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
-                   document.execCommand('formatBlock',false,'p')
-                 }
-                 return document.execCommand('insertunorderedlist',false,null)
-               }
-               if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ol'){
-                 if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
-                   document.execCommand('formatBlock',false,'p')
-                 }
-                 return document.execCommand('insertorderedlist',false,null)
-               }
               tagName = 'p';
             }
 
@@ -983,6 +761,19 @@ MediumEditor.extensions = {};
             // https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand#Commands
             if (blockContainer && blockContainer.nodeName.toLowerCase() === 'blockquote') {
                 // For IE, just use outdent
+                if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ul')
+                {
+                  // if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
+                     document.execCommand('formatBlock',false,'p')
+                   //}
+                   return document.execCommand('insertunorderedlist',false,null)
+                 }
+                 if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ol'){
+                   //if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
+                     document.execCommand('formatBlock',false,'p')
+                   //}
+                   return document.execCommand('insertorderedlist',false,null)
+                 }
                 if (Util.isIE && tagName === '<p>') {
                     return doc.execCommand('outdent', false, tagName);
                 }
@@ -998,6 +789,11 @@ MediumEditor.extensions = {};
                     }
                     return doc.execCommand('outdent', false, tagName);
                 }
+            }
+            var selectionElement = MediumEditor.selection.getSelectedElements(doc)[0]
+            while(selectionElement&&(selectionElement.tagName.toLowerCase()=='span'||selectionElement.tagName.toLowerCase()=='font')) {
+               MediumEditor.util.unwrap(selectionElement,doc)
+               selectionElement = MediumEditor.selection.getSelectedElements(doc)[0]
             }
             var resultTemp = doc.execCommand('formatBlock', false, tagName);
             return resultTemp;
@@ -1502,7 +1298,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.util = Util;
 }(window));
-
+//Extension
 (function () {
     'use strict';
 
@@ -1775,7 +1571,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.Extension = Extension;
 })();
-
+//Selection
 (function () {
     'use strict';
 
@@ -2453,7 +2249,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.selection = Selection;
 }());
-
+//Events
 (function () {
     'use strict';
 
@@ -2503,7 +2299,8 @@ MediumEditor.extensions = {};
         detachDOMEvent: function (targets, event, listener, useCapture) {
             var index, e;
             targets = MediumEditor.util.isElement(targets) || [window, document].indexOf(targets) > -1 ? [targets] : targets;
-
+            //donghao 
+            if(!targets)return
             Array.prototype.forEach.call(targets, function (target) {
                 index = this.indexOfListener(target, event, listener, useCapture);
                 if (index !== -1) {
@@ -3039,7 +2836,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.Events = Events;
 }());
-
+//Button
 (function () {
     'use strict';
 
@@ -3275,7 +3072,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.button = Button;
 }());
-
+//button defaults
 (function () {
     'use strict';
 
@@ -3368,20 +3165,20 @@ MediumEditor.extensions = {};
         'orderedlist': {
             name: 'orderedlist',
             action: 'insertorderedlist',
-            aria: 'ordered list',
+            aria: '有序列表',
             tagNames: ['ol'],
             useQueryState: true,
             contentDefault: '<b>1.</b>',
-            contentFA: '<i class="fa fa-list-ol"></i>'
+            contentFA: '<i class="icon-orderedlist"></i>'
         },
         'unorderedlist': {
             name: 'unorderedlist',
             action: 'insertunorderedlist',
-            aria: 'unordered list',
+            aria: '无序列表',
             tagNames: ['ul'],
             useQueryState: true,
             contentDefault: '<b>&bull;</b>',
-            contentFA: '<i class="fa fa-list-ul"></i>'
+            contentFA: '<i class="icon-unorderedlist"></i>'
         },
         'indent': {
             name: 'indent',
@@ -3462,10 +3259,10 @@ MediumEditor.extensions = {};
         'quote': {
             name: 'quote',
             action: 'append-blockquote',
-            aria: 'blockquote',
+            aria: '引用',
             tagNames: ['blockquote'],
             contentDefault: '<b>&ldquo;</b>',
-            contentFA: '<i class="fa fa-quote-right"></i>'
+            contentFA: '<i class="icon-block-quote"></i>'
         },
         'pre': {
             name: 'pre',
@@ -3486,18 +3283,18 @@ MediumEditor.extensions = {};
         'h2': {
             name: 'h2',
             action: 'append-h2',
-            aria: 'header type two',
+            aria: '大标题',
             tagNames: ['h2'],
             contentDefault: '<b>H2</b>',
-            contentFA: '<i class="fa fa-header"><sup>2</sup>'
+            contentFA: '<i class="icon-h2"></sup>'
         },
         'h3': {
             name: 'h3',
             action: 'append-h3',
-            aria: 'header type three',
+            aria: '小标题',
             tagNames: ['h3'],
             contentDefault: '<b>H3</b>',
-            contentFA: '<i class="fa fa-header"><sup>3</sup>'
+            contentFA: '<i class="icon-h3"></sup>'
         },
         'h4': {
             name: 'h4',
@@ -3526,6 +3323,7 @@ MediumEditor.extensions = {};
     };
 
 })();
+//FormExtension
 (function () {
     'use strict';
 
@@ -3646,6 +3444,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.form = FormExtension;
 })();
+//AnchorForm
 (function () {
     'use strict';
 
@@ -3979,7 +3778,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.anchor = AnchorForm;
 }());
-
+//AnchorPreview 此段代码已经注释
 (function () {
     'use strict';
 
@@ -4064,8 +3863,11 @@ MediumEditor.extensions = {};
             }
 
             if (this.previewValueSelector) {
-                this.anchorPreview.querySelector(this.previewValueSelector).textContent = anchorEl.attributes.href.value;
-                this.anchorPreview.querySelector(this.previewValueSelector).href = anchorEl.attributes.href.value;
+              //donghao
+              if(anchorEl.attributes.href===undefined)return
+                
+              this.anchorPreview.querySelector(this.previewValueSelector).textContent = anchorEl.attributes.href.value;
+              this.anchorPreview.querySelector(this.previewValueSelector).href = anchorEl.attributes.href.value;
             }
 
             this.anchorPreview.classList.add('medium-toolbar-arrow-over');
@@ -4259,7 +4061,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.anchorPreview = AnchorPreview;
 }());
-
+//Auto link 此段代码已经注释
 (function () {
     'use strict';
 
@@ -4511,7 +4313,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.autoLink = AutoLink;
 }());
-
+//fileDrag 此段代码已经注释
 (function () {
     'use strict';
 
@@ -4602,7 +4404,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.fileDragging = FileDragging;
 }());
-
+//KeyboardCommands 此段代码已注释
 (function () {
     'use strict';
 
@@ -4646,7 +4448,6 @@ MediumEditor.extensions = {};
 
         init: function () {
             MediumEditor.Extension.prototype.init.apply(this, arguments);
-
             this.subscribe('editableKeydown', this.handleKeydown.bind(this));
             this.keys = {};
             this.commands.forEach(function (command) {
@@ -4663,7 +4464,6 @@ MediumEditor.extensions = {};
             if (!this.keys[keyCode]) {
                 return;
             }
-
             var isMeta = MediumEditor.util.isMetaCtrlKey(event),
                 isShift = !!event.shiftKey,
                 isAlt = !!event.altKey;
@@ -4689,9 +4489,9 @@ MediumEditor.extensions = {};
         }
     });
 
-    MediumEditor.extensions.keyboardCommands = KeyboardCommands;
+    //MediumEditor.extensions.keyboardCommands = KeyboardCommands;
 }());
-
+//FontNameForm
 (function () {
     'use strict';
 
@@ -4876,7 +4676,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.fontName = FontNameForm;
 }());
-
+//FontSizeForm
 (function () {
     'use strict';
 
@@ -5054,6 +4854,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.fontSize = FontSizeForm;
 }());
+//PasteHandler
 (function () {
     'use strict';
 
@@ -5574,7 +5375,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.paste = PasteHandler;
 }());
-
+//Placeholder
 (function () {
     'use strict';
 
@@ -5591,7 +5392,7 @@ MediumEditor.extensions = {};
         /* hideOnClick: [boolean]
          * Should we hide the placeholder on click (true) or when user starts typing (false)
          */
-        hideOnClick: true,
+        hideOnClick: false,
 
         init: function () {
             MediumEditor.Extension.prototype.init.apply(this, arguments);
@@ -5675,7 +5476,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.placeholder = Placeholder;
 }());
-
+//Toolbar
 (function () {
     'use strict';
 
@@ -6083,6 +5884,9 @@ MediumEditor.extensions = {};
             // or toolbar is disabled for this selection element
             // hide toolbar
             var selectionElement = MediumEditor.selection.getSelectionElement(this.window);
+            //donghao 选中图片的说明时不显示toolbar
+            var selectElement = MediumEditor.selection.getSelectedElements(this.document);
+            if(selectElement[0]&&(selectElement[0].tagName.toLowerCase()=='figcaption'||selectElement[0].tagName.toLowerCase()=='hr'))return;
             if (!selectionElement ||
                     this.getEditorElements().indexOf(selectionElement) === -1 ||
                     selectionElement.getAttribute('data-disable-toolbar')) {
@@ -6197,7 +6001,6 @@ MediumEditor.extensions = {};
         setToolbarPosition: function () {
             var container = this.base.getFocusedElement(),
                 selection = this.window.getSelection();
-
             // If there isn't a valid selection, bail
             if (!container) {
                 return this;
@@ -6328,7 +6131,7 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.toolbar = Toolbar;
 }());
-
+//ImageDragging
 (function () {
     'use strict';
 
@@ -6388,9 +6191,10 @@ MediumEditor.extensions = {};
 
     MediumEditor.extensions.imageDragging = ImageDragging;
 }());
-
+//core
 (function () {
     'use strict';
+
 
     // Event handlers that shouldn't be exposed externally
 
@@ -6447,7 +6251,6 @@ MediumEditor.extensions = {};
             tagName = node.nodeName.toLowerCase(),
             isEmpty = /^(\s+|<br\/?>)?$/i,
             isHeader = /h\d/i;
-
         if (MediumEditor.util.isKey(event, [MediumEditor.util.keyCode.BACKSPACE, MediumEditor.util.keyCode.ENTER]) &&
                 // has a preceeding sibling
                 node.previousElementSibling &&
@@ -6529,6 +6332,19 @@ MediumEditor.extensions = {};
             // then pressing backspace key should change the <blockquote> to a <p> tag
             event.preventDefault();
             MediumEditor.util.execFormatBlock(this.options.ownerDocument, 'p');
+        }else if (MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&node.previousSibling&&node.previousSibling.className.indexOf('medium-insert-images')!=-1&&isEmpty.test(node.innerHTML)){
+          //donghao
+          //此处是为了阻止键盘删除图片
+          event.preventDefault();
+          return false;
+        }else if( MediumEditor.util.isKey(event,MediumEditor.util.keyCode.ENTER)&&tagName=='figcaption') {
+          //donghao
+          //此处禁止在figcaption换行
+          event.preventDefault();
+          return false;
+        }else if( MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&!node.previousSibling&&isEmpty.test(node.innerHTML) ) {
+          event.preventDefault();
+          return false;
         }
     }
 
@@ -6985,15 +6801,24 @@ MediumEditor.extensions = {};
         // Get the top level block element that contains the selection
         var blockContainer = MediumEditor.util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(this.options.ownerDocument)),
             childNodes;
-
         var currentNodeName = blockContainer.nodeName.toLowerCase();
-        // console.log(currentNodeName);
-        if (blockContainer && (currentNodeName != "ul" || currentNodeName != "ol") ) {
+
+        if (blockContainer && !(currentNodeName == "ul" || currentNodeName == "ol") ) {
           MediumEditor.util.execFormatBlock(this.options.ownerDocument, currentNodeName);
         }
-
         cmdValueArgument = opts && opts.value;
-        return this.options.ownerDocument.execCommand(action, false, cmdValueArgument);
+        if(currentNodeName=='ul'||currentNodeName=='ol') {
+          this.options.ownerDocument.execCommand(action, false, cmdValueArgument);
+          var selectionElement = MediumEditor.selection.getSelectedElements(this.options.ownerDocument)[0]
+          while(selectionElement&&(selectionElement.tagName.toLowerCase()=='span'||selectionElement.tagName.toLowerCase()=='font')) {
+             MediumEditor.util.unwrap(selectionElement,this.options.ownerDocument)
+             selectionElement = MediumEditor.selection.getSelectedElements(this.options.ownerDocument)[0]
+          }
+          return this.options.ownerDocument.execCommand('formatBlock', false, 'p');
+        }else {
+          return this.options.ownerDocument.execCommand(action, false, cmdValueArgument);
+        }
+        
     }
 
     /* If we've just justified text within a container block
@@ -7052,7 +6877,6 @@ MediumEditor.extensions = {};
             if (!this.options.elementsContainer) {
                 this.options.elementsContainer = this.options.ownerDocument.body;
             }
-
             return this.setup();
         },
 
@@ -7201,25 +7025,25 @@ MediumEditor.extensions = {};
             switch (name) {
                 case 'anchor':
                     merged = MediumEditor.util.extend({}, this.options.anchor, opts);
-                    extension = new MediumEditor.extensions.anchor(merged);
+                    //extension = new MediumEditor.extensions.anchor(merged);
                     break;
                 case 'anchor-preview':
-                    extension = new MediumEditor.extensions.anchorPreview(this.options.anchorPreview);
+                    //extension = new MediumEditor.extensions.anchorPreview(this.options.anchorPreview);
                     break;
                 case 'autoLink':
-                    extension = new MediumEditor.extensions.autoLink();
+                    //extension = new MediumEditor.extensions.autoLink();
                     break;
                 case 'fileDragging':
-                    extension = new MediumEditor.extensions.fileDragging(opts);
+                    //extension = new MediumEditor.extensions.fileDragging(opts);
                     break;
                 case 'fontname':
-                    extension = new MediumEditor.extensions.fontName(this.options.fontName);
+                    //extension = new MediumEditor.extensions.fontName(this.options.fontName);
                     break;
                 case 'fontsize':
-                    extension = new MediumEditor.extensions.fontSize(opts);
+                    //extension = new MediumEditor.extensions.fontSize(opts);
                     break;
                 case 'keyboardCommands':
-                    extension = new MediumEditor.extensions.keyboardCommands(this.options.keyboardCommands);
+                    //extension = new MediumEditor.extensions.keyboardCommands(this.options.keyboardCommands);
                     break;
                 case 'paste':
                     extension = new MediumEditor.extensions.paste(this.options.paste);
@@ -7311,7 +7135,6 @@ MediumEditor.extensions = {};
             if (action === 'insertunorderedlist' || action === 'insertorderedlist') {
                 MediumEditor.util.cleanListDOM(this.options.ownerDocument, this.getSelectedParentElement());
             }
-
             this.checkSelection();
             return result;
         },
@@ -7650,7 +7473,7 @@ MediumEditor.extensions = {};
         return null;
     };
 }());
-
+//default options
 (function () {
     // summary: The default options hash used by the Editor
 

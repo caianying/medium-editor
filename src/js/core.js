@@ -902,7 +902,7 @@
                 match,
                 result;
             /*jslint regexp: false*/
-
+             
             // Actions starting with 'full-' should be applied to to the entire contents of the editable element
             // (ie full-bold, full-append-pre, etc.)
             match = fullAction.exec(action);

@@ -85,8 +85,10 @@
   position: relative; }
   .medium-editor-placeholder:after {
     content: attr(data-placeholder) !important;
-    font-style: italic;
+    font-family: "HYQiHei-EES";
     left: 0;
+    font-size: 16px;
+    color:#D0D4D9;
     position: absolute;
     top: 0;
     white-space: pre;
@@ -133,6 +135,7 @@
       font-size: 14px;
       line-height: 1.33;
       margin: 0;
+      color:#9198a3;
       padding: 15px;
       text-decoration: none; }
       .medium-editor-toolbar li button:focus {
