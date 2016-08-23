@@ -262,6 +262,7 @@ MediumEditor.extensions = {};
          * Returns true if it's metaKey on Mac, or ctrlKey on non-Mac.
          * See #591
          */
+        //metaKey 为mac的command键
         isMetaCtrlKey: function (event) {
             if ((Util.isMac && event.metaKey) || (!Util.isMac && event.ctrlKey)) {
                 return true;
@@ -276,6 +277,7 @@ MediumEditor.extensions = {};
          * @see : https://github.com/jquery/jquery/blob/0705be475092aede1eddae01319ec931fb9c65fc/src/event.js#L473-L484
          * @see : http://stackoverflow.com/q/4471582/569101
          */
+        //判断输入的是keys或者是否属于keys数组
         isKey: function (event, keys) {
             var keyCode = Util.getKeyCode(event);
 
@@ -290,7 +292,7 @@ MediumEditor.extensions = {};
 
             return true;
         },
-
+        //获取键盘keycode，若没有去charcode
         getKeyCode: function (event) {
             var keyCode = event.which;
 
@@ -301,7 +303,7 @@ MediumEditor.extensions = {};
 
             return keyCode;
         },
-
+        //块级元素
         blockContainerElementNames: [
             // elements our editor generates
             'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'li', 'ol',
@@ -311,14 +313,14 @@ MediumEditor.extensions = {};
             'noscript', 'output', 'section', 'video',
             'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
         ],
-
+        //空元素
         emptyElementNames: ['br', 'col', 'colgroup', 'hr', 'img', 'input', 'source', 'wbr'],
-
+        //扩展对象，属性重复则重写
         extend: function extend(/* dest, source1, source2, ...*/) {
             var args = [true].concat(Array.prototype.slice.call(arguments));
             return copyInto.apply(this, args);
         },
-
+        //扩展对象，属性重复不重写
         defaults: function defaults(/*dest, source1, source2, ...*/) {
             var args = [false].concat(Array.prototype.slice.call(arguments));
             return copyInto.apply(this, args);
@@ -329,6 +331,7 @@ MediumEditor.extensions = {};
          * descendants of the same closest block container. If the preconditions are not met, unexpected
          * behavior will result.
          */
+        //创建一个A标签
         createLink: function (document, textNodes, href, target) {
             var anchor = document.createElement('a');
             Util.moveTextRangeIntoElement(textNodes[0], textNodes[textNodes.length - 1], anchor);
@@ -458,6 +461,7 @@ MediumEditor.extensions = {};
          * Since the <p> and <li>'s don't contain block elements and cover all the text content of the
          * <blockquote> container, they are the elements returned.
          */
+         //返回子元素是文本元素或者是非块级元素的DOM 数组
         splitByBlockElements: function (element) {
             if (element.nodeType !== 3 && element.nodeType !== 1) {
                 return [];
@@ -494,6 +498,7 @@ MediumEditor.extensions = {};
         //  - A descendant of a sibling element
         //  - A sibling text node of an ancestor
         //  - A descendant of a sibling element of an ancestor
+        //返回targetNode之后的 文本元素不为空的节点
         findAdjacentTextNodeWithContent: function findAdjacentTextNodeWithContent(rootNode, targetNode, ownerDocument) {
             var pastTarget = false,
                 nextNode,
@@ -518,6 +523,7 @@ MediumEditor.extensions = {};
 
         // Find an element's previous sibling within a medium-editor element
         // If one doesn't exist, find the closest ancestor's previous sibling
+        //查找此元素的前一个元素，如果没有则查找其父元素的前一个元素，其或者其父元素不为medium-editor元素
         findPreviousSibling: function (node) {
             if (!node || Util.isMediumEditorElement(node)) {
                 return false;
@@ -604,7 +610,7 @@ MediumEditor.extensions = {};
                 return result;
             };
         },
-
+        //向上追溯current，满足testElementFunctinon
         traverseUp: function (current, testElementFunction) {
             if (!current) {
                 return false;
@@ -626,7 +632,7 @@ MediumEditor.extensions = {};
 
             return false;
         },
-
+        //给字符串转义
         htmlEntities: function (str) {
             // converts special characters (like <) into their escaped/encoded values (like &lt;).
             // This allows you to show to display the string without the browser reading it as HTML.
@@ -809,6 +815,7 @@ MediumEditor.extensions = {};
          * using `anchorUrl` to ensure that we are adding target="_blank" on the good one.
          * This isn't a bulletproof solution anyway ..
          */
+        //el为a标签设置其target为_blank，否则设置其子元素
         setTargetBlank: function (el, anchorUrl) {
             var i, url = anchorUrl || false;
             if (el.nodeName.toLowerCase() === 'a') {
@@ -828,6 +835,7 @@ MediumEditor.extensions = {};
          * this function is called to explicitly remove the target='_blank' as FF holds on to _blank value even
          * after unchecking the checkbox on anchor form
          */
+         ////清楚指定a标签或者其子元素是a标签 的target
         removeTargetBlank: function (el, anchorUrl) {
             var i;
             if (el.nodeName.toLowerCase() === 'a') {
@@ -842,7 +850,7 @@ MediumEditor.extensions = {};
                 }
             }
         },
-
+        //给指定a标签或者其子元素是a标签 的 添加className
         addClassToAnchors: function (el, buttonClass) {
             var classes = buttonClass.split(' '),
                 i,
@@ -860,7 +868,7 @@ MediumEditor.extensions = {};
                 }
             }
         },
-
+        //判断此元素或者其祖先元素是不是li
         isListItem: function (node) {
             if (!node) {
                 return false;
@@ -994,7 +1002,7 @@ MediumEditor.extensions = {};
 
             return createdNode;
         },
-
+        //将startnode和endNode之间的节点都移到newElement
         moveTextRangeIntoElement: function (startNode, endNode, newElement) {
             if (!startNode || !endNode) {
                 return false;
@@ -1083,6 +1091,7 @@ MediumEditor.extensions = {};
         },
 
         /* based on http://stackoverflow.com/a/6183069 */
+        //返回这个元素的层级
         depthOfNode: function (inNode) {
             var theDepth = 0,
                 node = inNode;
@@ -1092,7 +1101,7 @@ MediumEditor.extensions = {};
             }
             return theDepth;
         },
-
+        //返回两个元素的共同父级
         findCommonRoot: function (inNode1, inNode2) {
             var depth1 = Util.depthOfNode(inNode1),
                 depth2 = Util.depthOfNode(inNode2),
@@ -1117,7 +1126,7 @@ MediumEditor.extensions = {};
             return node1;
         },
         /* END - based on http://stackoverflow.com/a/6183069 */
-
+        //判断元素是不是位于block元素或者meidum-editor的前面，它可以不是第一个元素，但必须是第一个有文本的元素。
         isElementAtBeginningOfBlock: function (node) {
             var textVal,
                 sibling;
@@ -1133,17 +1142,17 @@ MediumEditor.extensions = {};
             }
             return true;
         },
-
+        //判断元素是不是medium-editor元素
         isMediumEditorElement: function (element) {
             return element && element.getAttribute && !!element.getAttribute('data-medium-editor-element');
         },
-
+        //返回元素的medium-editor 父级
         getContainerEditorElement: function (element) {
             return Util.traverseUp(element, function (node) {
                 return Util.isMediumEditorElement(node);
             });
         },
-
+        //判断元素是不是块级元素
         isBlockContainer: function (element) {
             return element && element.nodeType !== 3 && Util.blockContainerElementNames.indexOf(element.nodeName.toLowerCase()) !== -1;
         },
@@ -1152,6 +1161,7 @@ MediumEditor.extensions = {};
          * If element is within editor element but not within any other block element,
          * the editor element is returned
          */
+         //获取最近的块级元素或者medium-editor元素
         getClosestBlockContainer: function (node) {
             return Util.traverseUp(node, function (node) {
                 return Util.isBlockContainer(node) || Util.isMediumEditorElement(node);
@@ -1162,6 +1172,7 @@ MediumEditor.extensions = {};
          * If element is within editor element but not within any other block element,
          * the editor element is returned
          */
+         //返回最顶层的块级元素，如果此元素不是块级元素，但是是一个medium-editor元素也被返回。
         getTopBlockContainer: function (element) {
             var topBlock = Util.isBlockContainer(element) ? element : false;
             Util.traverseUp(element, function (el) {
@@ -1176,7 +1187,7 @@ MediumEditor.extensions = {};
             });
             return topBlock;
         },
-
+        //返回此元素下的第一个非空、非table 子元素
         getFirstSelectableLeafNode: function (element) {
             while (element && element.firstChild) {
                 element = element.firstChild;
@@ -1201,7 +1212,7 @@ MediumEditor.extensions = {};
             Util.warn('getFirstTextNode is deprecated and will be removed in version 6.0.0');
             return Util._getFirstTextNode(element);
         },
-
+        //获取此元素里的第一个文本节点，无则为null
         _getFirstTextNode: function (element) {
             if (element.nodeType === 3) {
                 return element;
@@ -1245,13 +1256,13 @@ MediumEditor.extensions = {};
                 this[newName].apply(this, args);
             }
         },
-
+        //清楚给定的属性
         cleanupAttrs: function (el, attrs) {
             attrs.forEach(function (attr) {
                 el.removeAttribute(attr);
             });
         },
-
+        //清除符合tags数组 的el元素
         cleanupTags: function (el, tags) {
             tags.forEach(function (tag) {
                 if (el.nodeName.toLowerCase() === tag) {
@@ -1261,12 +1272,12 @@ MediumEditor.extensions = {};
         },
 
         // get the closest parent
+        // 从el追溯，获取最近的标签是tag的元素
         getClosestTag: function (el, tag) {
             return Util.traverseUp(el, function (element) {
                 return element.nodeName.toLowerCase() === tag.toLowerCase();
             });
         },
-
         unwrap: function (el, doc) {
             var fragment = doc.createDocumentFragment(),
                 nodes = Array.prototype.slice.call(el.childNodes);
@@ -1584,6 +1595,7 @@ MediumEditor.extensions = {};
     }
 
     var Selection = {
+        //向上追溯当前选区共同父节点，返回符合指定函数的节点，
         findMatchingSelectionParent: function (testElementFunction, contentWindow) {
             var selection = contentWindow.getSelection(),
                 range,
@@ -1598,7 +1610,7 @@ MediumEditor.extensions = {};
 
             return MediumEditor.util.traverseUp(current, testElementFunction);
         },
-
+        //向上追溯当前选区共同父节点 的父节点，返回是medium-edior元素的节点
         getSelectionElement: function (contentWindow) {
             return this.findMatchingSelectionParent(function (el) {
                 return MediumEditor.util.isMediumEditorElement(el);
@@ -1931,6 +1943,7 @@ MediumEditor.extensions = {};
 
         // Returns true if the selection range begins with an image tag
         // Returns false if the range starts with any non empty text nodes
+        //判断图片是不是当前选区的第一个非空元素
         doesRangeStartWithImages: function (range, doc) {
             if (range.startOffset !== 0 || range.startContainer.nodeType !== 1) {
                 return false;
@@ -2035,6 +2048,7 @@ MediumEditor.extensions = {};
 
         // determine if the current selection contains any 'content'
         // content being any non-white space text or an image
+        //判断选区是否是非空文本或者图片
         selectionContainsContent: function (doc) {
             var sel = doc.getSelection();
 
@@ -2060,7 +2074,7 @@ MediumEditor.extensions = {};
 
             return false;
         },
-
+        //选区父节点及其祖先节点不可编辑且不为文本节点
         selectionInContentEditableFalse: function (contentWindow) {
             // determine if the current selection is exclusively inside
             // a contenteditable="false", though treat the case of an
@@ -2079,6 +2093,7 @@ MediumEditor.extensions = {};
 
         // http://stackoverflow.com/questions/4176923/html-of-selected-text
         // by Tim Down
+        //获取选区的html
         getSelectionHtml: function getSelectionHtml(doc) {
             var i,
                 html = '',
@@ -2150,7 +2165,7 @@ MediumEditor.extensions = {};
             // Selection starts inside an element
             return range.startContainer;
         },
-
+        //返回被选中的元素 数组
         getSelectedElements: function (doc) {
             var selection = doc.getSelection(),
                 range,
@@ -2178,13 +2193,13 @@ MediumEditor.extensions = {};
                 return (typeof selection.containsNode === 'function') ? selection.containsNode(el, true) : true;
             });
         },
-
+        //选中某个节点
         selectNode: function (node, doc) {
             var range = doc.createRange();
             range.selectNodeContents(node);
             this.selectRange(doc, range);
         },
-
+        //将选区切到指点的range，并返回这个range
         select: function (doc, startNode, startOffset, endNode, endOffset) {
             var range = doc.createRange();
             range.setStart(startNode, startOffset);
@@ -2203,6 +2218,7 @@ MediumEditor.extensions = {};
          *  @param {DomDocument} doc            Current document
          *  @param {boolean} moveCursorToStart  A boolean representing whether or not to set the caret to the beginning of the prior selection.
          */
+         //将光标移到选区的start或者end
         clearSelection: function (doc, moveCursorToStart) {
             if (moveCursorToStart) {
                 doc.getSelection().collapseToStart();
@@ -2218,10 +2234,11 @@ MediumEditor.extensions = {};
          * @param  {DomElement}  node    Element where to jump
          * @param  {integer}     offset  Where in the element should we jump, 0 by default
          */
+        //将光标移到指定节点的指定位置
         moveCursor: function (doc, node, offset) {
             this.select(doc, node, offset);
         },
-
+        //获得selction
         getSelectionRange: function (ownerDocument) {
             var selection = ownerDocument.getSelection();
             if (selection.rangeCount === 0) {
@@ -2229,7 +2246,7 @@ MediumEditor.extensions = {};
             }
             return selection.getRangeAt(0);
         },
-
+        //选中一个选区
         selectRange: function (ownerDocument, range) {
             var selection = ownerDocument.getSelection();
 
@@ -2239,6 +2256,7 @@ MediumEditor.extensions = {};
 
         // http://stackoverflow.com/questions/1197401/how-can-i-get-the-element-the-caret-is-in-with-javascript-when-using-contentedi
         // by You
+        //获取选区的startNode，如果是文本节点则获取其父节点
         getSelectionStart: function (ownerDocument) {
             var node = ownerDocument.getSelection().anchorNode,
                 startNode = (node && node.nodeType === 3 ? node.parentNode : node);
@@ -2286,7 +2304,7 @@ MediumEditor.extensions = {};
         InputEventOnContenteditableSupported: !MediumEditor.util.isIE && !MediumEditor.util.isEdge,
 
         // Helpers for event handling
-
+        //给一组元素或者一个元素绑定事件
         attachDOMEvent: function (targets, event, listener, useCapture) {
             targets = MediumEditor.util.isElement(targets) || [window, document].indexOf(targets) > -1 ? [targets] : targets;
 
@@ -2295,7 +2313,7 @@ MediumEditor.extensions = {};
                 this.events.push([target, event, listener, useCapture]);
             }.bind(this));
         },
-
+        //给一组元素或者一个元素解除绑定事件
         detachDOMEvent: function (targets, event, listener, useCapture) {
             var index, e;
             targets = MediumEditor.util.isElement(targets) || [window, document].indexOf(targets) > -1 ? [targets] : targets;
@@ -2309,7 +2327,7 @@ MediumEditor.extensions = {};
                 }
             }.bind(this));
         },
-
+        //查找某个元素上的监听事件，返回序号
         indexOfListener: function (target, event, listener, useCapture) {
             var i, n, item;
             for (i = 0, n = this.events.length; i < n; i = i + 1) {
@@ -2320,7 +2338,7 @@ MediumEditor.extensions = {};
             }
             return -1;
         },
-
+        //解除所有事件
         detachAllDOMEvents: function () {
             var e = this.events.pop();
             while (e) {
@@ -2328,7 +2346,7 @@ MediumEditor.extensions = {};
                 e = this.events.pop();
             }
         },
-
+        //解除某一个元素上的所有事件
         detachAllEventsFromElement: function (element) {
             var filtered = this.events.filter(function (e) {
                 return e && e[0].getAttribute && e[0].getAttribute('medium-editor-index') === element.getAttribute('medium-editor-index');
@@ -2341,6 +2359,7 @@ MediumEditor.extensions = {};
         },
 
         // Attach all existing handlers to a new element
+        //给指定元素绑定 所有事件缓存中的事件。如果监听了editableInput，并将其内容缓存
         attachAllEventsToElement: function (element) {
             if (this.listeners['editableInput']) {
                 this.contentCache[element.getAttribute('medium-editor-index')] = element.innerHTML;
@@ -2352,13 +2371,13 @@ MediumEditor.extensions = {};
                 }, this);
             }
         },
-
+        //开启某个自定义事件
         enableCustomEvent: function (event) {
             if (this.disabledEvents[event] !== undefined) {
                 delete this.disabledEvents[event];
             }
         },
-
+        //禁止某个自定义事件
         disableCustomEvent: function (event) {
             this.disabledEvents[event] = true;
         },
@@ -2371,7 +2390,7 @@ MediumEditor.extensions = {};
             }
             this.customEvents[event].push(listener);
         },
-
+        //删除某个自定义事件
         detachCustomEvent: function (event, listener) {
             var index = this.indexOfCustomListener(event, listener);
             if (index !== -1) {
@@ -2379,7 +2398,7 @@ MediumEditor.extensions = {};
                 // TODO: If array is empty, should detach internal listeners via destroyListener()
             }
         },
-
+        //查询某个自定义事件并返回其序号
         indexOfCustomListener: function (event, listener) {
             if (!this.customEvents[event] || !this.customEvents[event].length) {
                 return -1;
@@ -2387,12 +2406,12 @@ MediumEditor.extensions = {};
 
             return this.customEvents[event].indexOf(listener);
         },
-
+        //删除所有自定义事件
         detachAllCustomEvents: function () {
             this.customEvents = {};
             // TODO: Should detach internal listeners here via destroyListener()
         },
-
+        //如果某个自定义事件存在且没有被禁用，则执行这个自定义事件
         triggerCustomEvent: function (name, data, editable) {
             if (this.customEvents[name] && !this.disabledEvents[name]) {
                 this.customEvents[name].forEach(function (listener) {
@@ -2402,7 +2421,7 @@ MediumEditor.extensions = {};
         },
 
         // Cleaning up
-
+        //销毁所有事件
         destroy: function () {
             this.detachAllDOMEvents();
             this.detachAllCustomEvents();
@@ -2620,7 +2639,7 @@ MediumEditor.extensions = {};
             }
             this.listeners[name] = true;
         },
-
+        //给所有基础元素 绑定事件，并将事件缓存
         attachToEachElement: function (name, handler) {
             // build our internal cache to know which element got already what handler attached
             if (!this.eventsCache) {
@@ -2809,7 +2828,7 @@ MediumEditor.extensions = {};
         },
 
         handlePaste: function (event) {
-            this.triggerCustomEvent('editablePaste', { currentTarget: event.currentTarget, target: event.target }, event.currentTarget);
+            this.triggerCustomEvent('editablePaste', event, event.currentTarget);
         },
 
         handleKeydown: function (event) {
@@ -4865,7 +4884,7 @@ MediumEditor.extensions = {};
         keyboardPasteEditable = null,
         stopProp = function (event) {
             event.stopPropagation();
-        };
+        };0.
 
     /*jslint regexp: true*/
     /*
@@ -4934,7 +4953,7 @@ MediumEditor.extensions = {};
     function getClipboardContent(event, win, doc) {
         var dataTransfer = event.clipboardData || win.clipboardData || doc.dataTransfer,
             data = {};
-
+            console.log(event)
         if (!dataTransfer) {
             return data;
         }
@@ -4998,7 +5017,7 @@ MediumEditor.extensions = {};
 
         init: function () {
             MediumEditor.Extension.prototype.init.apply(this, arguments);
-
+            console.log(this)
             if (this.forcePlainText || this.cleanPastedHTML) {
                 this.subscribe('editablePaste', this.handlePaste.bind(this));
                 this.subscribe('editableKeydown', this.handleKeydown.bind(this));
@@ -5017,10 +5036,9 @@ MediumEditor.extensions = {};
                 return;
             }
 
-            var clipboardContent = getClipboardContent(event, this.window, this.document),
-                pastedHTML = clipboardContent['text/html'],
+            var clipboardContent = getClipboardContent(event, this.window, this.document)
+            var pastedHTML = clipboardContent['text/html'],
                 pastedPlain = clipboardContent['text/plain'];
-
             if (this.window.clipboardData && event.clipboardData === undefined && !pastedHTML) {
                 // If window.clipboardData exists, but event.clipboardData doesn't exist,
                 // we're probably in IE. IE only has two possibilities for clipboard
@@ -6332,7 +6350,7 @@ MediumEditor.extensions = {};
             // then pressing backspace key should change the <blockquote> to a <p> tag
             event.preventDefault();
             MediumEditor.util.execFormatBlock(this.options.ownerDocument, 'p');
-        }else if (MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&node.previousSibling&&node.previousSibling.className.indexOf('medium-insert-images')!=-1&&isEmpty.test(node.innerHTML)){
+        }else if (MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&node.previousSibling&&node.previousSibling.className&&node.previousSibling.className.indexOf('medium-insert-images')!=-1&&isEmpty.test(node.innerHTML)){
           //donghao
           //此处是为了阻止键盘删除图片
           event.preventDefault();
