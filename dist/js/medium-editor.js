@@ -801,6 +801,7 @@ MediumEditor.extensions = {};
                MediumEditor.util.unwrap(selectionElement,doc)
                selectionElement = MediumEditor.selection.getSelectedElements(doc)[0]
             }
+            console.log(tagName)
             var resultTemp = doc.execCommand('formatBlock', false, tagName);
             return resultTemp;
         },
@@ -1144,7 +1145,7 @@ MediumEditor.extensions = {};
         },
         //判断元素是不是medium-editor元素
         isMediumEditorElement: function (element) {
-            return element && element.getAttribute && !!element.getAttribute('data-medium-editor-element');
+            return element && element.getAttribute && (!!element.getAttribute('data-medium-editor-element')||element.className.indexOf('medium-insert-buttons')!=-1);
         },
         //返回元素的medium-editor 父级
         getContainerEditorElement: function (element) {
@@ -5763,8 +5764,10 @@ MediumEditor.extensions = {};
             }.bind(this), 0);
         },
 
-        handleEditableKeyup: function () {
-            this.checkState();
+        handleEditableKeyup: function (e) {
+           if(e.shiftKey&&(e.keyCode==37||e.keyCode==38||e.keyCode==39||e.keyCode==40)) {
+            this.checkState()
+           }
         },
 
         handleBlur: function () {
@@ -6803,7 +6806,26 @@ MediumEditor.extensions = {};
             var src = this.options.contentWindow.getSelection().toString().trim();
             return this.options.ownerDocument.execCommand('insertImage', false, src);
         }
+        //donghao
+        //add seperator line
+        if (action ==='hr' ) {
+          var range = opts.window.getSelection().getRangeAt(0);
 
+          var selectElement = MediumEditor.selection.getSelectedParentElement(range),
+              nextNode = selectElement.nextElementSibling,
+              parentNode = selectElement.parentNode,
+              hr = document.createElement('hr');
+              console.log(selectElement)
+              console.log(nextNode)
+              console.log(parentNode)
+          if(nextNode&&!MediumEditor.util.isMediumEditorElement(nextNode)){
+              parentNode.insertBefore(hr,selectElement)
+              parentNode.removeChild(selectElement);
+
+          }else {
+              parentNode.insertBefore(hr,selectElement)
+          }
+        }
         /* Issue: https://github.com/yabwe/medium-editor/issues/595
          * If the action is to justify the text */
         if (justifyAction.exec(action)) {
@@ -7127,13 +7149,13 @@ MediumEditor.extensions = {};
             return queryState;
         },
 
-        execAction: function (action, opts) {
+        execAction: function (action, opts,notShowToolbar) {
             /*jslint regexp: true*/
             var fullAction = /^full-(.+)$/gi,
                 match,
                 result;
             /*jslint regexp: false*/
-
+            console.log(opts)
             // Actions starting with 'full-' should be applied to to the entire contents of the editable element
             // (ie full-bold, full-append-pre, etc.)
             match = fullAction.exec(action);
@@ -7153,7 +7175,8 @@ MediumEditor.extensions = {};
             if (action === 'insertunorderedlist' || action === 'insertorderedlist') {
                 MediumEditor.util.cleanListDOM(this.options.ownerDocument, this.getSelectedParentElement());
             }
-            this.checkSelection();
+
+            if(!notShowToolbar)this.checkSelection();
             return result;
         },
 
@@ -7177,7 +7200,7 @@ MediumEditor.extensions = {};
             }
         },
 
-        selectElement: function (element) {
+        selectElement: function (element,notShowToolbar) {
             MediumEditor.selection.selectNode(element, this.options.ownerDocument);
 
             var selElement = MediumEditor.selection.getSelectionElement(this.options.contentWindow);
