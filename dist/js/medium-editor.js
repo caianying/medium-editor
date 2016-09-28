@@ -2,6 +2,217 @@
 
 /*! @source http://purl.eligrey.com/github/classList.js/blob/master/classList.js */
 
+/* Blob.js
+ * A Blob implementation.
+ * 2014-07-24
+ *
+ * By Eli Grey, http://eligrey.com
+ * By Devin Samarin, https://github.com/dsamarin
+ * License: X11/MIT
+ *   See https://github.com/eligrey/Blob.js/blob/master/LICENSE.md
+ */
+
+/*global self, unescape */
+/*jslint bitwise: true, regexp: true, confusion: true, es5: true, vars: true, white: true,
+  plusplus: true */
+
+/*! @source http://purl.eligrey.com/github/Blob.js/blob/master/Blob.js */
+
+(function (view) {
+  "use strict";
+
+  view.URL = view.URL || view.webkitURL;
+
+  if (view.Blob && view.URL) {
+    try {
+      new Blob;
+      return;
+    } catch (e) {}
+  }
+
+  // Internally we use a BlobBuilder implementation to base Blob off of
+  // in order to support older browsers that only have BlobBuilder
+  var BlobBuilder = view.BlobBuilder || view.WebKitBlobBuilder || view.MozBlobBuilder || (function(view) {
+    var
+        get_class = function(object) {
+        return Object.prototype.toString.call(object).match(/^\[object\s(.*)\]$/)[1];
+      }
+      , FakeBlobBuilder = function BlobBuilder() {
+        this.data = [];
+      }
+      , FakeBlob = function Blob(data, type, encoding) {
+        this.data = data;
+        this.size = data.length;
+        this.type = type;
+        this.encoding = encoding;
+      }
+      , FBB_proto = FakeBlobBuilder.prototype
+      , FB_proto = FakeBlob.prototype
+      , FileReaderSync = view.FileReaderSync
+      , FileException = function(type) {
+        this.code = this[this.name = type];
+      }
+      , file_ex_codes = (
+          "NOT_FOUND_ERR SECURITY_ERR ABORT_ERR NOT_READABLE_ERR ENCODING_ERR "
+        + "NO_MODIFICATION_ALLOWED_ERR INVALID_STATE_ERR SYNTAX_ERR"
+      ).split(" ")
+      , file_ex_code = file_ex_codes.length
+      , real_URL = view.URL || view.webkitURL || view
+      , real_create_object_URL = real_URL.createObjectURL
+      , real_revoke_object_URL = real_URL.revokeObjectURL
+      , URL = real_URL
+      , btoa = view.btoa
+      , atob = view.atob
+
+      , ArrayBuffer = view.ArrayBuffer
+      , Uint8Array = view.Uint8Array
+
+      , origin = /^[\w-]+:\/*\[?[\w\.:-]+\]?(?::[0-9]+)?/
+    ;
+    FakeBlob.fake = FB_proto.fake = true;
+    while (file_ex_code--) {
+      FileException.prototype[file_ex_codes[file_ex_code]] = file_ex_code + 1;
+    }
+    // Polyfill URL
+    if (!real_URL.createObjectURL) {
+      URL = view.URL = function(uri) {
+        var
+            uri_info = document.createElementNS("http://www.w3.org/1999/xhtml", "a")
+          , uri_origin
+        ;
+        uri_info.href = uri;
+        if (!("origin" in uri_info)) {
+          if (uri_info.protocol.toLowerCase() === "data:") {
+            uri_info.origin = null;
+          } else {
+            uri_origin = uri.match(origin);
+            uri_info.origin = uri_origin && uri_origin[1];
+          }
+        }
+        return uri_info;
+      };
+    }
+    URL.createObjectURL = function(blob) {
+      var
+          type = blob.type
+        , data_URI_header
+      ;
+      if (type === null) {
+        type = "application/octet-stream";
+      }
+      if (blob instanceof FakeBlob) {
+        data_URI_header = "data:" + type;
+        if (blob.encoding === "base64") {
+          return data_URI_header + ";base64," + blob.data;
+        } else if (blob.encoding === "URI") {
+          return data_URI_header + "," + decodeURIComponent(blob.data);
+        } if (btoa) {
+          return data_URI_header + ";base64," + btoa(blob.data);
+        } else {
+          return data_URI_header + "," + encodeURIComponent(blob.data);
+        }
+      } else if (real_create_object_URL) {
+        return real_create_object_URL.call(real_URL, blob);
+      }
+    };
+    URL.revokeObjectURL = function(object_URL) {
+      if (object_URL.substring(0, 5) !== "data:" && real_revoke_object_URL) {
+        real_revoke_object_URL.call(real_URL, object_URL);
+      }
+    };
+    FBB_proto.append = function(data/*, endings*/) {
+      var bb = this.data;
+      // decode data to a binary string
+      if (Uint8Array && (data instanceof ArrayBuffer || data instanceof Uint8Array)) {
+        var
+            str = ""
+          , buf = new Uint8Array(data)
+          , i = 0
+          , buf_len = buf.length
+        ;
+        for (; i < buf_len; i++) {
+          str += String.fromCharCode(buf[i]);
+        }
+        bb.push(str);
+      } else if (get_class(data) === "Blob" || get_class(data) === "File") {
+        if (FileReaderSync) {
+          var fr = new FileReaderSync;
+          bb.push(fr.readAsBinaryString(data));
+        } else {
+          // async FileReader won't work as BlobBuilder is sync
+          throw new FileException("NOT_READABLE_ERR");
+        }
+      } else if (data instanceof FakeBlob) {
+        if (data.encoding === "base64" && atob) {
+          bb.push(atob(data.data));
+        } else if (data.encoding === "URI") {
+          bb.push(decodeURIComponent(data.data));
+        } else if (data.encoding === "raw") {
+          bb.push(data.data);
+        }
+      } else {
+        if (typeof data !== "string") {
+          data += ""; // convert unsupported types to strings
+        }
+        // decode UTF-16 to binary string
+        bb.push(unescape(encodeURIComponent(data)));
+      }
+    };
+    FBB_proto.getBlob = function(type) {
+      if (!arguments.length) {
+        type = null;
+      }
+      return new FakeBlob(this.data.join(""), type, "raw");
+    };
+    FBB_proto.toString = function() {
+      return "[object BlobBuilder]";
+    };
+    FB_proto.slice = function(start, end, type) {
+      var args = arguments.length;
+      if (args < 3) {
+        type = null;
+      }
+      return new FakeBlob(
+          this.data.slice(start, args > 1 ? end : this.data.length)
+        , type
+        , this.encoding
+      );
+    };
+    FB_proto.toString = function() {
+      return "[object Blob]";
+    };
+    FB_proto.close = function() {
+      this.size = 0;
+      delete this.data;
+    };
+    return FakeBlobBuilder;
+  }(view));
+
+  view.Blob = function(blobParts, options) {
+    var type = options ? (options.type || "") : "";
+    var builder = new BlobBuilder();
+    if (blobParts) {
+      for (var i = 0, len = blobParts.length; i < len; i++) {
+        if (Uint8Array && blobParts[i] instanceof Uint8Array) {
+          builder.append(blobParts[i].buffer);
+        }
+        else {
+          builder.append(blobParts[i]);
+        }
+      }
+    }
+    var blob = builder.getBlob(type);
+    if (!blob.slice && blob.webkitSlice) {
+      blob.slice = blob.webkitSlice;
+    }
+    return blob;
+  };
+
+  var getPrototypeOf = Object.getPrototypeOf || function(object) {
+    return object.__proto__;
+  };
+  view.Blob.prototype = getPrototypeOf(new view.Blob());
+}(typeof self !== "undefined" && self || typeof window !== "undefined" && window || this.content || this));
 // Full polyfill for browsers with no classList support
 if (!("classList" in document.createElement("_"))) {
   (function (view) {
@@ -727,7 +938,6 @@ MediumEditor.extensions = {};
               blockContainer = Util.getTopBlockContainer(MediumEditor.selection.getSelectionStart(doc))
             }
 
-
             if (tagName === 'blockquote') {
                 if (blockContainer) {
                     childNodes = Array.prototype.slice.call(blockContainer.childNodes);
@@ -767,19 +977,19 @@ MediumEditor.extensions = {};
             // https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand#Commands
             if (blockContainer && blockContainer.nodeName.toLowerCase() === 'blockquote') {
                 // For IE, just use outdent
-                if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ul')
+                if(blockContainer.previousElementSibling&&blockContainer.previousElementSibling.nodeName.toLowerCase()=='ul'||blockContainer.nextElementSibling&&blockContainer.nextElementSibling.nodeName.toLowerCase()=='ul')
                 {
                   // if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
                      document.execCommand('formatBlock',false,'p')
                    //}
                    return document.execCommand('insertunorderedlist',false,null)
-                 }
-                 if(blockContainer.previousSibling&&blockContainer.previousSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextSibling&&blockContainer.nextSibling.nodeName.toLowerCase()=='ol'){
+                }
+                if(blockContainer.previousElementSibling&&blockContainer.previousElementSibling.nodeName.toLowerCase()=='ol'||blockContainer.nextElementSibling&&blockContainer.nextElementSibling.nodeName.toLowerCase()=='ol'){
                    //if(tagName=='h3'||tagName=='h2'||tagName=="blockquote"){
                      document.execCommand('formatBlock',false,'p')
                    //}
                    return document.execCommand('insertorderedlist',false,null)
-                 }
+                }
                 if (Util.isIE && tagName === '<p>') {
                     return doc.execCommand('outdent', false, tagName);
                 }
@@ -796,13 +1006,18 @@ MediumEditor.extensions = {};
                     return doc.execCommand('outdent', false, tagName);
                 }
             }
-            var selectionElement = MediumEditor.selection.getSelectedElements(doc)[0]
-            while(selectionElement&&(selectionElement.tagName.toLowerCase()=='span'||selectionElement.tagName.toLowerCase()=='font')) {
-               MediumEditor.util.unwrap(selectionElement,doc)
-               selectionElement = MediumEditor.selection.getSelectedElements(doc)[0]
+            var selectionElements = MediumEditor.selection.getSelectedElements(doc)
+            for(var i=0;i<selectionElements.length;i++) {
+              var selectNode = selectionElements[i],
+                selectNodeTagName = selectNode.tagName.toLowerCase()
+              if(selectNode&&selectNodeTagName=='span'||selectNodeTagName=='font') {
+                MediumEditor.util.unwrap(selectNode,doc)
+              }
             }
-            console.log(tagName)
             var resultTemp = doc.execCommand('formatBlock', false, tagName);
+            while(blockContainer&&!MediumEditor.util.isMediumEditorElement(blockContainer.parentNode)) {
+              blockContainer = blockContainer.parentNode
+            }
             return resultTemp;
         },
 
@@ -1187,6 +1402,20 @@ MediumEditor.extensions = {};
                 return false;
             });
             return topBlock;
+        },
+        //donghao
+        //返回顶级的块级元素，并不包含medium-editor
+        getTopBlockContainerWithoutMedium:function(element) {
+          var topBlock = element
+          Util.traverseUp(topBlock,function (el) {
+              if(Util.isMediumEditorElement(el.parentNode)){
+                return true
+              }else {
+                el = el.parentNode;
+              }
+              return false
+            })
+          return topBlock;
         },
         //返回此元素下的第一个非空、非table 子元素
         getFirstSelectableLeafNode: function (element) {
@@ -1682,11 +1911,10 @@ MediumEditor.extensions = {};
             if (!selectionState || !root) {
                 return;
             }
-
             var range = doc.createRange();
             range.setStart(root, 0);
             range.collapse(true);
-
+            console.log(selectionState)
             var node = root,
                 nodeStack = [],
                 charIndex = 0,
@@ -1721,7 +1949,6 @@ MediumEditor.extensions = {};
                     node = nodeStack.pop();
                     continue;
                 }
-
                 // If we hit a text node, we need to add the amount of characters to the overall count
                 if (node.nodeType === 3 && !foundEnd) {
                     nextCharIndex = charIndex + node.length;
@@ -1777,7 +2004,6 @@ MediumEditor.extensions = {};
                         }
                     }
                 }
-
                 if (!stop) {
                     node = nodeStack.pop();
                 }
@@ -5018,7 +5244,6 @@ MediumEditor.extensions = {};
 
         init: function () {
             MediumEditor.Extension.prototype.init.apply(this, arguments);
-            console.log(this)
             if (this.forcePlainText || this.cleanPastedHTML) {
                 this.subscribe('editablePaste', this.handlePaste.bind(this));
                 this.subscribe('editableKeydown', this.handleKeydown.bind(this));
@@ -6271,101 +6496,187 @@ MediumEditor.extensions = {};
         var p, node = MediumEditor.selection.getSelectionStart(this.options.ownerDocument),
             tagName = node.nodeName.toLowerCase(),
             isEmpty = /^(\s+|<br\/?>)?$/i,
-            isHeader = /h\d/i;
-        if (MediumEditor.util.isKey(event, [MediumEditor.util.keyCode.BACKSPACE, MediumEditor.util.keyCode.ENTER]) &&
-                // has a preceeding sibling
-                node.previousElementSibling &&
-                // in a header
-                isHeader.test(tagName) &&
-                // at the very end of the block
-                MediumEditor.selection.getCaretOffsets(node).left === 0) {
+            isHeader = /h\d/i,
+            topParentNode = node,
+            specialBlockNode = [ 'blockquote' ]
+        while(true) {
+          if(!MediumEditor.util.isMediumEditorElement(topParentNode.parentNode)){
+            topParentNode = topParentNode.parentNode
+          }else {
+            break
+          }
+        }
+        console.log(topParentNode.textContent)
+        var topParentNodeName = topParentNode.nodeName.toLowerCase()
+        console.log(topParentNodeName)
+        //按键为backspace或者delte
+        if( MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE]) ) {
+          //donghao
+          //此处防止删除第一行
+          if(!topParentNode.previousElementSibling&&!topParentNode.textContent&&specialBlockNode.indexOf(topParentNodeName)==-1) {
+              console.log('防止删除第一行')
+              event.preventDefault()
+              return 
+          } else if (topParentNode.previousSibling&&topParentNode.previousSibling.className&&parentNode.previousSibling.className.indexOf('medium-insert-images')!=-1&&!topParentNode.textContent){
+            //donghao
+            //此处是为了阻止键盘删除图片
+            event.preventDefault();
+            return false;
+          }
+        }
+        //按键为baskspace或者enter
+        if(MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.ENTER])) {
+          //donghao
+          //在删除空的blockquote标签，把它们转为p标签
+          if(specialBlockNode.indexOf(topParentNodeName)!=-1&&!topParentNode.textContent) {
+              event.preventDefault();
+              MediumEditor.util.execFormatBlock(this.options.ownerDocument, 'p');
+              return 
+          } else if ( node.previousElementSibling && isHeader.test(tagName) &&  MediumEditor.selection.getCaretOffsets(node).left === 0) {
+              // has a preceeding sibling
+              // in a header
+              // at the very end of the block
             if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) && isEmpty.test(node.previousElementSibling.innerHTML)) {
+                //当删除一个h1,h2,h3,h4,h5,h6时，如果前一个标签是空的，则删除前一个标签而不删除自己
                 // backspacing the begining of a header into an empty previous element will
                 // change the tagName of the current node to prevent one
                 // instead delete previous node and cancel the event.
                 node.previousElementSibling.parentNode.removeChild(node.previousElementSibling);
                 event.preventDefault();
+                return 
             } else if (!this.options.disableDoubleReturn && MediumEditor.util.isKey(event, MediumEditor.util.keyCode.ENTER)) {
+                // 当在一个h标签回车上，阻止默认回车，因为这样会导致接下来的标签也是h标签，而是添加一个p标签，并将光标移动到它身上
                 // hitting return in the begining of a header will create empty header elements before the current one
                 // instead, make "<p><br></p>" element, which are what happens if you hit return in an empty paragraph
+
                 p = this.options.ownerDocument.createElement('p');
                 p.innerHTML = '<br>';
                 node.previousElementSibling.parentNode.insertBefore(p, node);
                 event.preventDefault();
+                return
             }
-        } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.DELETE) &&
-                    // between two sibling elements
-                    node.nextElementSibling &&
-                    node.previousElementSibling &&
-                    // not in a header
-                    !isHeader.test(tagName) &&
-                    // in an empty tag
-                    isEmpty.test(node.innerHTML) &&
-                    // when the next tag *is* a header
-                    isHeader.test(node.nextElementSibling.nodeName.toLowerCase())) {
-            // hitting delete in an empty element preceding a header, ex:
-            //  <p>[CURSOR]</p><h1>Header</h1>
-            // Will cause the h1 to become a paragraph.
-            // Instead, delete the paragraph node and move the cursor to the begining of the h1
+          }
+        }
+        //按键为enter
+        if( MediumEditor.util.isKey(event,MediumEditor.util.keyCode.ENTER)) {
+            //donghao
+            //此处禁止在figcaption换行
+            if(tagName=='figcaption') {
+              event.preventDefault();
+              return false;
+            }
+            //li标签如果内容为空，且是最后一个li，则换行后，为一个p标签
+            if(MediumEditor.util.getClosestTag(node,'li')) {
+                var liNode = node
+                while(true) {
+                  if(liNode.nodeName.toLowerCase()=='li') {
+                    break
+                  }else {
+                    liNode = liNode.parentNode
+                  }
+                }
+                if(!liNode.textContent&&!liNode.nextElementSibling) {
+                  event.preventDefault()
+                  p = this.options.ownerDocument.createElement('p');
+                  p.innerHTML = '<br>';
+                  if(topParentNode.nextElementSibling) {
+                    console.log(topParentNode.nextElementSibling)
+                    topParentNode.parentNode.insertBefore(p,topParentNode.nextElementSibling)
+                  }else {
+                    topParentNode.parentNode.appendChild(p)
+                  }
+                  liNode.parentNode.removeChild(liNode)
+                  MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+                  event.preventDefault(); 
+                  return
+                }
+            }
+            //在代码块中的换行
+            if(MediumEditor.util.getClosestTag(node,'dl')) {
+                var liNode = node
+                while(true) {
+                  if(liNode.nodeName.toLowerCase()=='dl') {
+                    break
+                  }else {
+                    liNode = liNode.parentNode
+                  }
+                }
+                if(!liNode.textContent&&!liNode.nextElementSibling) {
+                  event.preventDefault()
+                  p = this.options.ownerDocument.createElement('p');
+                  p.innerHTML = '<br>';
+                  if(topParentNode.nextElementSibling) {
+                    console.log(topParentNode.nextElementSibling)
+                    topParentNode.parentNode.insertBefore(p,topParentNode.nextElementSibling)
+                  }else {
+                    topParentNode.parentNode.appendChild(p)
+                  }
+                  liNode.parentNode.removeChild(liNode)
+                  MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+                  event.preventDefault(); 
+                  return
+                }
+            }
+          //这是默认换行策略，这样做可以清除上一行带来的默认样式
+            if(['blockquote','pre','ul','ol','dl'].indexOf(topParentNodeName)==-1) {
+              p = document.createElement('p')
+              p.innerHTML = '<br />'
+              if(topParentNode.nextElementSibling) {
+                topParentNode.parentNode.insertBefore(p,topParentNode.nextElementSibling)
+              }else {
+                topParentNode.parentNode.appendChild(p)
+              }
+              MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+              event.preventDefault()
+            }
+        }
+        //按键为delete
+        if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.DELETE)) {
+            if( node.nextElementSibling &&node.previousElementSibling &&!isHeader.test(tagName) &&
+                isEmpty.test(node.innerHTML) && isHeader.test(node.nextElementSibling.nodeName.toLowerCase() )) {
+              // between two sibling elements
+              // not in a header
+              // in an empty tag
+              // when the next tag *is* a header
+              // hitting delete in an empty element preceding a header, ex:
+              //  <p>[CURSOR]</p><h1>Header</h1>
+              // Will cause the h1 to become a paragraph.
+              // Instead, delete the paragraph node and move the cursor to the begining of the h1
+              // remove node and move cursor to start of header
+              MediumEditor.selection.moveCursor(this.options.ownerDocument, node.nextElementSibling);
+              node.previousElementSibling.parentNode.removeChild(node);
+              event.preventDefault(); 
+              return 
+            }
+        }
+        //按键为backspace
+        if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE)){
+            if(tagName === 'li' && isEmpty.test(node.innerHTML) && !node.previousElementSibling &&
+              !node.parentElement.previousElementSibling && node.nextElementSibling && node.nextElementSibling.nodeName.toLowerCase() === 'li') {
+              // hitting backspace inside an empty li
+              // is first element (no preceeding siblings)
+              // parent also does not have a sibling
+              // is not the only li in a list
+              // backspacing in an empty first list element in the first list (with more elements) ex:
+              //  <ul><li>[CURSOR]</li><li>List Item 2</li></ul>
+              // will remove the first <li> but add some extra element before (varies based on browser)
+              // Instead, this will:
+              // 1) remove the list element
+              // 2) create a paragraph before the list
+              // 3) move the cursor into the paragraph
 
-            // remove node and move cursor to start of header
-            MediumEditor.selection.moveCursor(this.options.ownerDocument, node.nextElementSibling);
-
-            node.previousElementSibling.parentNode.removeChild(node);
-
-            event.preventDefault();
-        } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) &&
-                tagName === 'li' &&
-                // hitting backspace inside an empty li
-                isEmpty.test(node.innerHTML) &&
-                // is first element (no preceeding siblings)
-                !node.previousElementSibling &&
-                // parent also does not have a sibling
-                !node.parentElement.previousElementSibling &&
-                // is not the only li in a list
-                node.nextElementSibling &&
-                node.nextElementSibling.nodeName.toLowerCase() === 'li') {
-            // backspacing in an empty first list element in the first list (with more elements) ex:
-            //  <ul><li>[CURSOR]</li><li>List Item 2</li></ul>
-            // will remove the first <li> but add some extra element before (varies based on browser)
-            // Instead, this will:
-            // 1) remove the list element
-            // 2) create a paragraph before the list
-            // 3) move the cursor into the paragraph
-
-            // create a paragraph before the list
-            p = this.options.ownerDocument.createElement('p');
-            p.innerHTML = '<br>';
-            node.parentElement.parentElement.insertBefore(p, node.parentElement);
-
-            // move the cursor into the new paragraph
-            MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
-
-            // remove the list element
-            node.parentElement.removeChild(node);
-
-            event.preventDefault();
-        } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) &&
-                (MediumEditor.util.getClosestTag(node, 'blockquote') !== false) &&
-                MediumEditor.selection.getCaretOffsets(node).left === 0) {
-
-            // when cursor is at the begining of the element and the element is <blockquote>
-            // then pressing backspace key should change the <blockquote> to a <p> tag
-            event.preventDefault();
-            MediumEditor.util.execFormatBlock(this.options.ownerDocument, 'p');
-        }else if (MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&node.previousSibling&&node.previousSibling.className&&node.previousSibling.className.indexOf('medium-insert-images')!=-1&&isEmpty.test(node.innerHTML)){
-          //donghao
-          //此处是为了阻止键盘删除图片
-          event.preventDefault();
-          return false;
-        }else if( MediumEditor.util.isKey(event,MediumEditor.util.keyCode.ENTER)&&tagName=='figcaption') {
-          //donghao
-          //此处禁止在figcaption换行
-          event.preventDefault();
-          return false;
-        }else if( MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE])&&!node.previousSibling&&isEmpty.test(node.innerHTML) ) {
-          event.preventDefault();
-          return false;
+              // create a paragraph before the list
+              console.log('ha?')
+              p = this.options.ownerDocument.createElement('p');
+              p.innerHTML = '<br>';
+              node.parentElement.parentElement.insertBefore(p, node.parentElement);
+              // move the cursor into the new paragraph
+              MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+              // remove the list element
+              node.parentElement.removeChild(node);
+              event.preventDefault();
+              return
+          }
         }
     }
 
@@ -6919,7 +7230,8 @@ MediumEditor.extensions = {};
             }
             return this.setup();
         },
-
+        selection:MediumEditor.selection,
+        util:MediumEditor.util,
         setup: function () {
             if (this.isActive) {
                 return;
@@ -7155,7 +7467,6 @@ MediumEditor.extensions = {};
                 match,
                 result;
             /*jslint regexp: false*/
-            console.log(opts)
             // Actions starting with 'full-' should be applied to to the entire contents of the editable element
             // (ie full-bold, full-append-pre, etc.)
             match = fullAction.exec(action);
