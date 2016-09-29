@@ -6506,18 +6506,15 @@ MediumEditor.extensions = {};
             break
           }
         }
-        console.log(topParentNode.textContent)
         var topParentNodeName = topParentNode.nodeName.toLowerCase()
-        console.log(topParentNodeName)
         //按键为backspace或者delte
         if( MediumEditor.util.isKey(event,[MediumEditor.util.keyCode.BACKSPACE,MediumEditor.util.keyCode.DELETE]) ) {
           //donghao
           //此处防止删除第一行
           if(!topParentNode.previousElementSibling&&!topParentNode.textContent&&specialBlockNode.indexOf(topParentNodeName)==-1) {
-              console.log('防止删除第一行')
               event.preventDefault()
               return 
-          } else if (topParentNode.previousSibling&&topParentNode.previousSibling.className&&parentNode.previousSibling.className.indexOf('medium-insert-images')!=-1&&!topParentNode.textContent){
+          } else if (topParentNode.previousSibling&&topParentNode.previousSibling.className&&topParentNode.previousSibling.className.indexOf('medium-insert-images')!=-1&&!topParentNode.textContent){
             //donghao
             //此处是为了阻止键盘删除图片
             event.preventDefault();
@@ -6601,8 +6598,8 @@ MediumEditor.extensions = {};
                     liNode = liNode.parentNode
                   }
                 }
+                console.log(liNode)
                 if(!liNode.textContent&&!liNode.nextElementSibling) {
-                  event.preventDefault()
                   p = this.options.ownerDocument.createElement('p');
                   p.innerHTML = '<br>';
                   if(topParentNode.nextElementSibling) {
@@ -6615,20 +6612,31 @@ MediumEditor.extensions = {};
                   MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
                   event.preventDefault(); 
                   return
+                } else if(liNode.textContent) {
+                  var newliNode = document.createElement('dl')
+                  newliNode.innerHTML = '<br>'
+                  if(liNode.nextElementSibling) {
+                    liNode.parentNode.insertBefore(newliNode,liNode.nextElementSibling)
+                  }else {
+                    liNode.parentNode.appendChild(newliNode)
+                  }
+                  MediumEditor.selection.moveCursor(this.options.ownerDocument,newliNode)
+                  event.preventDefault(); 
+                  return
                 }
             }
           //这是默认换行策略，这样做可以清除上一行带来的默认样式
-            if(['blockquote','pre','ul','ol','dl'].indexOf(topParentNodeName)==-1) {
-              p = document.createElement('p')
-              p.innerHTML = '<br />'
-              if(topParentNode.nextElementSibling) {
-                topParentNode.parentNode.insertBefore(p,topParentNode.nextElementSibling)
-              }else {
-                topParentNode.parentNode.appendChild(p)
-              }
-              MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
-              event.preventDefault()
-            }
+            // if(['blockquote','pre','ul','ol','dl'].indexOf(topParentNodeName)==-1) {
+            //   p = document.createElement('p')
+            //   p.innerHTML = '<br />'
+            //   if(topParentNode.nextElementSibling) {
+            //     topParentNode.parentNode.insertBefore(p,topParentNode.nextElementSibling)
+            //   }else {
+            //     topParentNode.parentNode.appendChild(p)
+            //   }
+            //   MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+            //   event.preventDefault()
+            // }
         }
         //按键为delete
         if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.DELETE)) {
